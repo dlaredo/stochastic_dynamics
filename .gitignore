@@ -56,3 +56,33 @@ docs/_build/
 
 # PyBuilder
 target/
+
+#tensorflow logs
+tf_logs/
+
+code/\.ipynb_checkpoints/
+\.DS_Store
+
+*.bak
+
+*.sav
+
+*.acn
+
+*.bbl
+
+*.aux
+
+*.blg
+
+*.glo
+
+*.glsdefs
+
+*.ist
+
+*.out
+
+code/testFile\.txt
+
+*.DESKTOP-1HD7NSA
