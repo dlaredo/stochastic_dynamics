@@ -17,8 +17,13 @@ import loss_functions
 def create_placeholders(input_shape, output_shape):
     X = tf.placeholder(tf.float32, shape=(None, input_shape), name="X")
     y = tf.placeholder(tf.float32, shape=(None), name="y")
+    c = tf.placeholder(tf.float32, shape=(), name="c")
+    k = tf.placeholder(tf.float32, shape=(), name="k")
+    D = tf.placeholder(tf.float32, shape=(), name="D")
+    batch_size = tf.placeholder(tf.int32, shape=(), name="batch_size")
+    deltas = tf.placeholder(tf.float32, shape=(input_shape), name="deltas")
 
-    return X, y
+    return X, y, c, k, D, batch_size, deltas
 
 
 def tf_model(X):
@@ -36,35 +41,38 @@ def tf_model(X):
 
 def tf_compiled_model(num_features, output_shape):
     tf.reset_default_graph()
-
-    deltas = [0.1, 0.1]
-    k = 1
-    c = 0.1
-    D = 1
-    num_fevals = 5
-
-    X, y = create_placeholders(num_features, output_shape)
+    X, y, c, k, D, batch_size, deltas = create_placeholders(num_features, output_shape)
 
     y_pred = tf_model(X)
-    loss_function = loss_functions.squared_residual_function_wrapper(k, c, D, deltas, num_fevals)
-    cost = loss_function(X, y_pred)
+    cost = loss_functions.squared_residual_function(X, y_pred, deltas, k, c, D, batch_size)
     reg_cost = tf.losses.get_regularization_loss()
     total_cost = cost + reg_cost
 
     optimizer = tf.train.AdamOptimizer(learning_rate=0.001, beta1=0.5).minimize(total_cost)
 
-    return {'X_placeholder': X, 'y_placeholder': y, 'y_pred': y_pred, 'cost': cost, 'total_cost': total_cost, 'optimizer': optimizer}
+    return {'X_placeholder': X, 'y_placeholder': y, 'c_placeholder': c, 'k_placeholder': k, 'D_placeholder': D,
+            'batch_size_placeholder': batch_size,
+            'deltas_placeholder': deltas, 'y_pred': y_pred, 'cost': cost, 'total_cost': total_cost,
+            'optimizer': optimizer}
 
 
-def train_model2(tf_session, model, X_train, y_train, batch_size, epochs, get_minibatches_function_handle, deltas, verbose=1):
+def train_model(tf_session, model, X_train, y_train, batch_size, epochs, get_minibatches_function_handle, deltas, k, c,
+                D, verbose=1):
 
     # Retrieve model variables
     X = model['X_placeholder']
     y = model['y_placeholder']
+    c_tf = model['c_placeholder']
+    k_tf = model['k_placeholder']
+    D_tf = model['D_placeholder']
+    batch_size_tf = model['batch_size_placeholder']
+    deltas_tf = model['deltas_placeholder']
 
     optimizer = model['optimizer']
     total_cost = model['total_cost']
     cost = model['cost']
+
+    total_points = 5
 
     avg_cost_reg = 0.0
     avg_cost = 0.0
@@ -79,13 +87,17 @@ def train_model2(tf_session, model, X_train, y_train, batch_size, epochs, get_mi
             cost_tot = 0.0
             cost_reg_tot = 0.0
 
+            # X_batches, y_batches, total_batch = aux_functions.get_minibatches(self.X_train, self.y_train, self._batch_size)
             X_batches, y_batches, total_batch = get_minibatches_function_handle(X_train, y_train, batch_size, deltas=deltas)
 
             # Train with the minibatches
             for i in range(total_batch):
                 batch_x, batch_y = X_batches[i], y_batches[i]
+                batch_size_real = int(batch_x.shape[0] / total_points)
 
-                _, c_reg, f_cost = tf_session.run([optimizer, total_cost, cost], feed_dict={X: batch_x, y: batch_y})
+                _, c_reg, f_cost = tf_session.run([optimizer, total_cost, cost],
+                                     feed_dict={X: batch_x, y: batch_y, k_tf: k, c_tf: c, D_tf: D,
+                                                batch_size_tf: batch_size_real, deltas_tf: deltas})
                 cost_tot += f_cost
                 cost_reg_tot += c_reg
 
@@ -121,7 +133,7 @@ def main():
 
     sess = tf.Session()
 
-    train_model2(sess, model, X_train, y_train, 512, 10, minibatches_function_handle, deltas, verbose=1)
+    train_model(sess, model, X_train, y_train, 512, 100, minibatches_function_handle, deltas, k, c, D, verbose=1)
 
     #predict model
     phi_nn = model['y_pred']
