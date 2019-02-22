@@ -45,6 +45,9 @@ def get_minibatches(X_full, y_full, batch_size, **kwargs):
         X_full_batch = np.zeros([k,feature_number])
         y_full_batch = np.zeros([k, 1])
 
+        #Add the original y at the beginning of the batch, rest of the array is zeros because we dont know it
+        y_full_batch[:batch_size] = y_full[i*batch_size:(i+1)*batch_size]
+
         for j in range(len_deltas):
             X_batch = X_deltas[j]
             X_full_batch[j*batch_size:(j+1)*batch_size] = X_batch[i*batch_size:(i+1)*batch_size]
@@ -61,6 +64,9 @@ def get_minibatches(X_full, y_full, batch_size, **kwargs):
         for j in range(len_deltas):
             X_batch = X_deltas[j]
             X_full_batch[j*remainder:(j+1)*remainder] = X_batch[total_batches*batch_size:]
+
+            # Add the original y at the beginning of the batch, rest of the array is zeros because we dont know it
+            y_full_batch[:remainder] = y_full[total_batches*batch_size:]
 
         X_batches.append(X_full_batch)
         y_batches.append(y_full_batch)
