@@ -1,6 +1,8 @@
 import tensorflow as tf
 
 
+# Old Derivatives
+
 def first_order_central_finite_difference(tf_fx_delta_plus, tf_fx_delta_minus, delta):
     derivative = tf.subtract(tf_fx_delta_plus, tf_fx_delta_minus) / (2 * delta)
 
@@ -8,9 +10,42 @@ def first_order_central_finite_difference(tf_fx_delta_plus, tf_fx_delta_minus, d
 
 
 def second_order_central_finite_difference(tf_fx, tf_fx_delta_plus, tf_fx_delta_minus, delta):
-    second_derivative = tf.add(tf.subtract(tf_fx_delta_plus, 2 * tf_fx), tf_fx_delta_minus) / (delta ** 2)
+    second_derivative = tf.subtract(tf.add(tf_fx_delta_plus, tf_fx_delta_minus), 2*tf_fx) / (delta ** 2)
 
     return second_derivative
+
+
+# New Integrals
+
+def R1_integral(x2, tf_fx_x_plus, tf_fx_x_minus, delta_y):
+    R1 = 2 * delta_y * tf.multiply(x2, tf.subtract(tf_fx_x_plus, tf_fx_x_minus))
+    
+    return R1
+
+def R2_integral(x2, x2_delta_plus, x2_delta_minus, tf_fx, tf_fx_y_plus, tf_fx_y_minus, delta_x, delta_y):
+    
+    s1 = (2 * delta_x)*tf.subtract(tf.multiply(tf_fx_y_plus, x2_delta_plus), tf.multiply(tf_fx_y_minus, x2_delta_minus))
+    s2 = 4*tf_fx * delta_x * delta_y
+    
+    R2 = tf.subtract(s1, s2)
+    
+    return R2
+
+def R3_integral(x1, tf_fx_y_plus, tf_fx_y_minus, delta_x):
+    R3 = 2 * delta_x * tf.multiply(x1, tf.subtract(tf_fx_y_plus, tf_fx_y_minus))
+    
+    return R3
+
+def R4_integral(tf_fx_y_plus, tf_fx_y_minus, delta_x, delta_y):
+    R4 = (delta_x/ delta_y) * tf.pow(tf.subtract(tf_fx_y_plus, tf_fx_y_minus), 2)
+    
+    return R4
+
+def R5_integral(tf_fx, tf_fx_y_plus, tf_fx_y_minus, delta_x, delta_y):
+    R5 = (2*delta_x/ delta_y) * tf.subtract(tf.add(tf_fx_y_plus, tf_fx_y_minus), 2*tf_fx)
+    
+    return R5
+
 
 
 def squared_residual_function_wrapper2(k, c, D, deltas, num_feval):
@@ -26,41 +61,51 @@ def squared_residual_function_wrapper2(k, c, D, deltas, num_feval):
         batch_size = tf.cast(shape_x[0] / num_feval, tf.int32)
 
         # Reset the tensor to 0,0 for every new batch
-        begin = tf.get_variable("begin", initializer=[0, 0], dtype=tf.int32)
-        begin = tf.assign(begin, [0, 0])
+        begin_x = tf.get_variable("begin_x", initializer=[0, 0], dtype=tf.int32)
+        begin_y = tf.get_variable("begin_y", initializer=[0, 0], dtype=tf.int32)
+        begin_x = tf.assign(begin_x, [0, 0])
+        begin_y = tf.assign(begin_y, [0, 0])
         multiplier_begin = tf.constant([1, 0])
-        size = tf.stack([batch_size, num_output])
+        size_y = tf.stack([batch_size, num_output])
         size_x = tf.stack([batch_size, num_features])
-        offset_increment = tf.multiply(size, multiplier_begin)
+        offset_increment_x = tf.multiply(size_x, multiplier_begin)
+        offset_increment_y = tf.multiply(size_y, multiplier_begin)
 
         # Retrieve original points and predictions
-        X_original = tf.slice(X, begin, size_x)
-        y_pred_original = tf.slice(y_pred, begin, size)
+        X_original = tf.slice(X, begin_x, size_x)
+        y_pred_original = tf.slice(y_pred, begin_y, size_y)
 
         #Retrieve original y
-        y_original = tf.slice(y_real, begin, size)
+        y_original = tf.slice(y_real, begin_y, size_y)
 
         x1 = X_original[:, 0]
         x2 = X_original[:, 1]
 
-        begin = tf.add(begin, offset_increment)
-        y_pred_delta1_plus = tf.slice(y_pred, begin, size)
+        begin_x = tf.add(begin_x, offset_increment_x)
+        begin_y = tf.add(begin_y, offset_increment_y)
+        y_pred_delta1_plus = tf.slice(y_pred, begin_y, size_y)
+        X_delta1_plus = tf.slice(X, begin_x, size_x)
 
-        begin = tf.add(begin, offset_increment)
-        y_pred_delta1_minus = tf.slice(y_pred, begin, size)
+        begin_x = tf.add(begin_x, offset_increment_x)
+        begin_y = tf.add(begin_y, offset_increment_y)
+        y_pred_delta1_minus = tf.slice(y_pred, begin_y, size_y)
+        X_delta1_minus = tf.slice(X, begin_x, size_x)
 
-        begin = tf.add(begin, offset_increment)
-        y_pred_delta2_plus = tf.slice(y_pred, begin, size)
+        begin_x = tf.add(begin_x, offset_increment_x)
+        begin_y = tf.add(begin_y, offset_increment_y)
+        y_pred_delta2_plus = tf.slice(y_pred, begin_y, size_y)
+        X_delta2_plus = tf.slice(X, begin_x, size_x)
 
-        begin = tf.add(begin, offset_increment)
-        y_pred_delta2_minus = tf.slice(y_pred, begin, size)
+        begin_x = tf.add(begin_x, offset_increment_x)
+        begin_y = tf.add(begin_y, offset_increment_y)
+        y_pred_delta2_minus = tf.slice(y_pred, begin_y, size_y)
+        X_delta2_minus = tf.slice(X, begin_x, size_x)
 
         # compute the tensors given y_pred
         nn_partial1_x = first_order_central_finite_difference(y_pred_delta1_plus, y_pred_delta1_minus, delta_x)
         nn_partial1_y = first_order_central_finite_difference(y_pred_delta2_plus, y_pred_delta2_minus, delta_y)
         nn_partial2_y = second_order_central_finite_difference(y_pred_original, y_pred_delta2_plus, y_pred_delta2_minus,
                                                                delta_y)
-
         r1 = tf.multiply(x2, nn_partial1_x)
         r2 = tf.multiply(c * x2, nn_partial1_y)
         r3 = tf.multiply(k * x1, nn_partial1_y)
@@ -70,9 +115,23 @@ def squared_residual_function_wrapper2(k, c, D, deltas, num_feval):
 
         r = tf.reduce_sum(tf.pow(r_total, 2)) / (2 * tf.cast(batch_size, tf.float32))
 
+        # e (compared with real phi)
         e = tf.reduce_sum(tf.pow(tf.subtract(y_original, y_pred_original), 2)) / (2 * tf.cast(batch_size, tf.float32))
-
-        return r, e
+        
+        # R (integral)
+        R1 = R1_integral(x2, y_pred_delta1_plus, y_pred_delta1_minus, delta_y)
+        R2 = R2_integral(x2, X_delta2_plus[:,1], X_delta2_minus[:,1], y_pred_original, y_pred_delta2_plus, y_pred_delta2_minus, delta_x, delta_y)
+        R3 = R3_integral(x1, y_pred_delta2_plus, y_pred_delta2_minus, delta_x)
+        R4 = R4_integral(y_pred_delta2_plus, y_pred_delta2_minus, delta_x, delta_y)
+        R5 = R5_integral(y_pred_original, y_pred_delta2_plus, y_pred_delta2_minus, delta_x, delta_y)
+        
+        #R_total = R1 + c - c*R2 - k*R3 + D*tf.subtract(R4, R5)
+        R_total = R2
+        
+        
+        R = tf.reduce_sum(tf.pow(R_total, 2)) / (2 * tf.cast(batch_size, tf.float32))
+    
+        return R, e
 
     return squared_residual_function2
 
