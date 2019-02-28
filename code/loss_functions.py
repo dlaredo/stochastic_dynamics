@@ -1,4 +1,5 @@
 import tensorflow as tf
+import analytic_functions
 
 
 # Old Derivatives
@@ -10,7 +11,8 @@ def first_order_central_finite_difference(tf_fx_delta_plus, tf_fx_delta_minus, d
 
 
 def second_order_central_finite_difference(tf_fx, tf_fx_delta_plus, tf_fx_delta_minus, delta):
-    second_derivative = tf.subtract(tf.add(tf_fx_delta_plus, tf_fx_delta_minus), 2*tf_fx) / (delta ** 2)
+    tf_fx = tf.Print(tf_fx, [tf_fx, tf_fx_delta_plus, tf_fx_delta_minus], "\nf(y) f(y+h) f(y-h): ")
+    second_derivative = tf.add(tf.subtract(tf_fx_delta_plus, 2 * tf_fx), tf_fx_delta_minus) / (delta ** 2)
 
     return second_derivative
 
@@ -101,11 +103,21 @@ def squared_residual_function_wrapper2(k, c, D, deltas, num_feval):
         y_pred_delta2_minus = tf.slice(y_pred, begin_y, size_y)
         X_delta2_minus = tf.slice(X, begin_x, size_x)
 
-        # compute the tensors given y_pred
+        # compute the approximate derivatives (tensors) given y_pred
         nn_partial1_x = first_order_central_finite_difference(y_pred_delta1_plus, y_pred_delta1_minus, delta_x)
         nn_partial1_y = first_order_central_finite_difference(y_pred_delta2_plus, y_pred_delta2_minus, delta_y)
         nn_partial2_y = second_order_central_finite_difference(y_pred_original, y_pred_delta2_plus, y_pred_delta2_minus,
                                                                delta_y)
+
+        # Compute real derivatives
+        analytic_derivatives = analytic_functions.real_derivatives_tf(X_original, sigma_x, sigma_y)
+        nn_partial1_x_real = analytic_derivatives[0]
+        nn_partial1_y_real = analytic_derivatives[1]
+        nn_partial2_y_real = analytic_derivatives[2]
+
+        nn_partial1_x = tf.Print(nn_partial1_x, [nn_partial1_x_real, nn_partial1_y_real, nn_partial2_y_real], message="\nReal derivatives: ")
+        nn_partial1_x = tf.Print(nn_partial1_x, [nn_partial1_x, nn_partial1_y, nn_partial2_y], message="\nAppr derivatives: ")
+
         r1 = tf.multiply(x2, nn_partial1_x)
         r2 = tf.multiply(c * x2, nn_partial1_y)
         r3 = tf.multiply(k * x1, nn_partial1_y)

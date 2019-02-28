@@ -1,4 +1,5 @@
 import numpy as np
+import tensorflow as tf
 
 def real_p(x1, x2, sigma_x, sigma_y):
     phi = (x1 ** 2) / (2 * sigma_x ** 2) + (x2 ** 2) / (2 * sigma_y ** 2)
