@@ -50,7 +50,7 @@ def R5_integral(tf_fx, tf_fx_y_plus, tf_fx_y_minus, delta_x, delta_y):
 
 
 
-def squared_residual_function_wrapper2(k, c, D, deltas, num_feval):
+def squared_residual_function_wrapper2(k, c, D, deltas, num_feval, sigma_x, sigma_y):
     def squared_residual_function2(X, y_pred, y_real):
         num_output = tf.constant(1)
         num_features = tf.constant(2)
@@ -76,6 +76,7 @@ def squared_residual_function_wrapper2(k, c, D, deltas, num_feval):
         # Retrieve original points and predictions
         X_original = tf.slice(X, begin_x, size_x)
         y_pred_original = tf.slice(y_pred, begin_y, size_y)
+        y_real_original = tf.slice(y_real, begin_y, size_y)
 
         #Retrieve original y
         y_original = tf.slice(y_real, begin_y, size_y)
@@ -85,23 +86,27 @@ def squared_residual_function_wrapper2(k, c, D, deltas, num_feval):
 
         begin_x = tf.add(begin_x, offset_increment_x)
         begin_y = tf.add(begin_y, offset_increment_y)
-        y_pred_delta1_plus = tf.slice(y_pred, begin_y, size_y)
         X_delta1_plus = tf.slice(X, begin_x, size_x)
+        y_pred_delta1_plus = tf.slice(y_pred, begin_y, size_y)
+        y_real_delta1_plus = tf.slice(y_real, begin_y, size_y)
 
         begin_x = tf.add(begin_x, offset_increment_x)
         begin_y = tf.add(begin_y, offset_increment_y)
-        y_pred_delta1_minus = tf.slice(y_pred, begin_y, size_y)
         X_delta1_minus = tf.slice(X, begin_x, size_x)
+        y_pred_delta1_minus = tf.slice(y_pred, begin_y, size_y)
+        y_real_delta1_minus = tf.slice(y_real, begin_y, size_y)
 
         begin_x = tf.add(begin_x, offset_increment_x)
         begin_y = tf.add(begin_y, offset_increment_y)
-        y_pred_delta2_plus = tf.slice(y_pred, begin_y, size_y)
         X_delta2_plus = tf.slice(X, begin_x, size_x)
+        y_pred_delta2_plus = tf.slice(y_pred, begin_y, size_y)
+        y_real_delta2_plus = tf.slice(y_real, begin_y, size_y)
 
         begin_x = tf.add(begin_x, offset_increment_x)
         begin_y = tf.add(begin_y, offset_increment_y)
-        y_pred_delta2_minus = tf.slice(y_pred, begin_y, size_y)
         X_delta2_minus = tf.slice(X, begin_x, size_x)
+        y_pred_delta2_minus = tf.slice(y_pred, begin_y, size_y)
+        y_real_delta2_minus = tf.slice(y_real, begin_y, size_y)
 
         # compute the approximate derivatives (tensors) given y_pred
         nn_partial1_x = first_order_central_finite_difference(y_pred_delta1_plus, y_pred_delta1_minus, delta_x)
@@ -129,19 +134,30 @@ def squared_residual_function_wrapper2(k, c, D, deltas, num_feval):
 
         # e (compared with real phi)
         e = tf.reduce_sum(tf.pow(tf.subtract(y_original, y_pred_original), 2)) / (2 * tf.cast(batch_size, tf.float32))
-        
+
         # R (integral)
         R1 = R1_integral(x2, y_pred_delta1_plus, y_pred_delta1_minus, delta_y)
         R2 = R2_integral(x2, X_delta2_plus[:,1], X_delta2_minus[:,1], y_pred_original, y_pred_delta2_plus, y_pred_delta2_minus, delta_x, delta_y)
         R3 = R3_integral(x1, y_pred_delta2_plus, y_pred_delta2_minus, delta_x)
         R4 = R4_integral(y_pred_delta2_plus, y_pred_delta2_minus, delta_x, delta_y)
         R5 = R5_integral(y_pred_original, y_pred_delta2_plus, y_pred_delta2_minus, delta_x, delta_y)
-        
+
+        # R (integral)
+        RR1 = R1_integral(x2, y_real_delta1_plus, y_real_delta1_minus, delta_y)
+        RR2 = R2_integral(x2, X_delta2_plus[:, 1], X_delta2_minus[:, 1], y_real_original, y_real_delta2_plus, y_real_delta2_minus, delta_x, delta_y)
+        RR3 = R3_integral(x1, y_real_delta2_plus, y_real_delta2_minus, delta_x)
+        RR4 = R4_integral(y_real_delta2_plus, y_real_delta2_minus, delta_x, delta_y)
+        RR5 = R5_integral(y_real_original, y_real_delta2_plus, y_real_delta2_minus, delta_x, delta_y)
+
         R_total = R1 + c*delta_x*delta_y - c*R2 - k*R3 + D*tf.subtract(R4, R5)
-        #R_total = R2
+        RR_total = RR1 + c*delta_x*delta_y - c*RR2 - k*RR3 + D*tf.subtract(RR4, RR5)
         
         
         R = tf.reduce_sum(tf.pow(R_total, 2)) / (2 * tf.cast(batch_size, tf.float32))
+        RR = tf.reduce_sum(tf.pow(RR_total, 2)) / (2 * tf.cast(batch_size, tf.float32))
+
+        R = tf.Print(R, [R1, R2, R3, R4, R5, R_total, R], message='Predicted integrals')
+        R = tf.Print(R, [RR1, RR2, RR3, RR4, RR5, RR_total, RR], message='Real integrals')
     
         return R, e
 

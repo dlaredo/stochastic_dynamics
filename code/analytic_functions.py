@@ -9,7 +9,12 @@ def real_p(x1, x2, sigma_x, sigma_y):
 
     return np.reshape(p, [p.shape[0], 1]), np.reshape(phi, [phi.shape[0], 1])
 
-def real_derivatives(X, sigma_x, sigma_y):
+def real_phi_tf(x1, x2, sigma_x, sigma_y):
+    phi = tf.add(tf.pow(x1, 2) / (2 * sigma_x ** 2),  tf.pow(x2, 2) / (2 * sigma_y ** 2))
+
+    return phi
+
+def real_derivatives_tf(X, sigma_x, sigma_y):
     x1 = X[:, 0]
     x2 = X[:, 1]
     
