@@ -272,3 +272,42 @@ def squared_residual_function(X, y_pred, deltas, k, c, D, batch_size):
     r = tf.reduce_sum(tf.pow(r_total, 2))/(2*tf.cast(batch_size, tf.float32))
 
     return r
+
+def linear_residual_function_wrapper(num_inputs, num_outputs, deltas, num_feval):
+    def linear_residual_function(X, y_pred, y_real):
+
+        num_output = tf.constant(num_outputs)
+        num_features = tf.constant(num_inputs)
+
+        delta_x = deltas[0]
+        shape_x = tf.shape(X)
+
+        batch_size = tf.cast(shape_x[0] / num_feval, tf.int32)
+
+        # Reset the tensor to 0,0 for every new batch
+        begin = tf.get_variable("begin", initializer=[0, 0], dtype=tf.int32)
+        begin = tf.assign(begin, [0, 0])
+        multiplier_begin = tf.constant([1, 0])
+        size = tf.stack([batch_size, num_output])
+        size_x = tf.stack([batch_size, num_features])
+        offset_increment = tf.multiply(size, multiplier_begin)
+
+        #Retrieve original points and predictions
+        X_original = tf.slice(X, begin, size_x)
+        y_pred_original = tf.slice(y_pred, begin, size)
+        x1 = X_original[:, 0]
+
+        begin = tf.add(begin, offset_increment)
+        y_pred_delta1_plus = tf.slice(y_pred, begin, size)
+
+        begin = tf.add(begin, offset_increment)
+        y_pred_delta1_minus = tf.slice(y_pred, begin, size)
+
+        r_total = y_pred_delta1_plus*(1 - delta_x/2) - y_pred_original*(1 + delta_x/2)
+
+        r = tf.reduce_sum(tf.pow(r_total, 2))/(2*tf.cast(batch_size, tf.float32))
+        e = tf.reduce_sum(tf.pow(tf.subtract(y_real, y_pred_original), 2)) / (2 * tf.cast(batch_size, tf.float32))
+
+        return r, e
+
+    return linear_residual_function
