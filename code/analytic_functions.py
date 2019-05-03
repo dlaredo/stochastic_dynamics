@@ -9,6 +9,12 @@ def real_p(x1, x2, sigma_x, sigma_y):
 
     return np.reshape(p, [p.shape[0], 1]), np.reshape(phi, [phi.shape[0], 1])
 
+def real_y(x):
+
+    y = np.exp(x)
+
+    return np.reshape(y, [y.shape[0], 1])
+
 def real_phi_tf(x1, x2, sigma_x, sigma_y):
     phi = tf.add(tf.pow(x1, 2) / (2 * sigma_x ** 2),  tf.pow(x2, 2) / (2 * sigma_y ** 2))
 
