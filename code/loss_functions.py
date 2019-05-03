@@ -297,28 +297,44 @@ def linear_residual_function_wrapper(num_inputs, num_outputs, deltas, num_feval)
         batch_size = tf.cast(shape_x[0] / num_feval, tf.int32)
 
         # Reset the tensor to 0,0 for every new batch
-        begin = tf.get_variable("begin", initializer=[0, 0], dtype=tf.int32)
-        begin = tf.assign(begin, [0, 0])
+        begin_x = tf.get_variable("begin_x", initializer=[0, 0], dtype=tf.int32)
+        begin_y = tf.get_variable("begin_y", initializer=[0, 0], dtype=tf.int32)
+        begin_x = tf.assign(begin_x, [0, 0])
+        begin_y = tf.assign(begin_y, [0, 0])
         multiplier_begin = tf.constant([1, 0])
-        size = tf.stack([batch_size, num_output])
+        size_y = tf.stack([batch_size, num_output])
         size_x = tf.stack([batch_size, num_features])
-        offset_increment = tf.multiply(size, multiplier_begin)
+        offset_increment_x = tf.multiply(size_x, multiplier_begin)
+        offset_increment_y = tf.multiply(size_y, multiplier_begin)
 
-        #Retrieve original points and predictions
-        X_original = tf.slice(X, begin, size_x)
-        y_pred_original = tf.slice(y_pred, begin, size)
-        x1 = X_original[:, 0]
+        # Retrieve original points and predictions
+        X_original = tf.slice(X, begin_x, size_x)
+        y_pred_original = tf.slice(y_pred, begin_y, size_y)
+        y_real_original = tf.slice(y_real, begin_y, size_y)
 
-        begin = tf.add(begin, offset_increment)
-        y_pred_delta1_plus = tf.slice(y_pred, begin, size)
+        # Retrieve original y
+        y_original = tf.slice(y_real, begin_y, size_y)
 
-        begin = tf.add(begin, offset_increment)
-        y_pred_delta1_minus = tf.slice(y_pred, begin, size)
+        len_original = tf.shape(X_original[:, 0])
+        x1 = tf.slice(X_original, [0, 0], tf.stack([batch_size, 1]))
+        #x2 = tf.slice(X_original, [0, 1], tf.stack([batch_size, 1]))
+
+        begin_x = tf.add(begin_x, offset_increment_x)
+        begin_y = tf.add(begin_y, offset_increment_y)
+        X_delta1_plus = tf.slice(X, begin_x, size_x)
+        y_pred_delta1_plus = tf.slice(y_pred, begin_y, size_y)
+        y_real_delta1_plus = tf.slice(y_real, begin_y, size_y)
+
+        begin_x = tf.add(begin_x, offset_increment_x)
+        begin_y = tf.add(begin_y, offset_increment_y)
+        X_delta1_minus = tf.slice(X, begin_x, size_x)
+        y_pred_delta1_minus = tf.slice(y_pred, begin_y, size_y)
+        y_real_delta1_minus = tf.slice(y_real, begin_y, size_y)
 
         r_total = y_pred_delta1_plus*(1 - delta_x/2) - y_pred_original*(1 + delta_x/2)
 
         r = tf.reduce_sum(tf.pow(r_total, 2))/(2*tf.cast(batch_size, tf.float32))
-        e = tf.reduce_sum(tf.pow(tf.subtract(y_real, y_pred_original), 2)) / (2 * tf.cast(batch_size, tf.float32))
+        e = tf.reduce_sum(tf.pow(tf.subtract(y_original, y_pred_original), 2)) / (2 * tf.cast(batch_size, tf.float32))
 
         return r, e
 

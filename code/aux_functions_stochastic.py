@@ -108,8 +108,6 @@ def get_minibatches_linear(X_full, y_full, batch_size, **kwargs):
     X_deltas = list()
     y_deltas = list()
 
-    print(X_full)
-
     X_full, y_full = sklearn.utils.shuffle(X_full, y_full)
 
     full_size = X_full.shape[0]
