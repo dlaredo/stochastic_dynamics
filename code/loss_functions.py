@@ -328,10 +328,15 @@ def linear_residual_function_wrapper(num_inputs, num_outputs, deltas, num_feval)
         begin_x = tf.add(begin_x, offset_increment_x)
         begin_y = tf.add(begin_y, offset_increment_y)
         X_delta1_minus = tf.slice(X, begin_x, size_x)
+
         y_pred_delta1_minus = tf.slice(y_pred, begin_y, size_y)
         y_real_delta1_minus = tf.slice(y_real, begin_y, size_y)
 
+        y_pred_delta1_minus = tf.Print(y_pred_delta1_minus, [y_original, y_pred_original], message="y_o, y_p")
+
         r_total = y_pred_delta1_plus*(1 - delta_x/2) - y_pred_original*(1 + delta_x/2)
+
+        r_total = first_order_central_finite_difference(y_pred_delta1_plus, y_pred_delta1_minus, delta_x) - y_pred_original
 
         r = tf.reduce_sum(tf.pow(r_total, 2))/(2*tf.cast(batch_size, tf.float32))
         e = tf.reduce_sum(tf.pow(tf.subtract(y_original, y_pred_original), 2)) / (2 * tf.cast(batch_size, tf.float32))
