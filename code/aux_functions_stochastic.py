@@ -107,6 +107,13 @@ def get_minibatches_linear(X_full, y_full, batch_size, **kwargs):
     extra_points = feature_number * 2
     X_deltas = list()
     y_deltas = list()
+    
+    initial_x = np.zeros([1,1])
+    initial_y = np.zeros([1,1])
+    initial_conditions_number = initial_x.shape[0]
+
+    initial_x[0,0] = 0
+    initial_y[0,0] = 2
 
     X_full, y_full = sklearn.utils.shuffle(X_full, y_full)
 
@@ -146,7 +153,7 @@ def get_minibatches_linear(X_full, y_full, batch_size, **kwargs):
     for i in range(total_batches):
 
         # Generate minibatch with all the neighboring points
-        k = (extra_points + 1) * batch_size
+        k = (extra_points + 1) * batch_size + initial_conditions_number
         X_full_batch = np.zeros([k, feature_number])
         y_full_batch = np.zeros([k, 1])
 
@@ -157,13 +164,18 @@ def get_minibatches_linear(X_full, y_full, batch_size, **kwargs):
             # Y batches with increments
             y_batch = y_deltas[j]
             y_full_batch[j * batch_size:(j + 1) * batch_size] = y_batch[i * batch_size:(i + 1) * batch_size]
-
+            
+        #Add initial conditions
+        for j in range(initial_conditions_number):
+            X_full_batch[k-j-1] = initial_x
+            y_full_batch[k-j-1] = initial_y
+            
         X_batches.append(X_full_batch)
         y_batches.append(y_full_batch)
 
     if remainder != 0:
 
-        k = (extra_points + 1) * remainder
+        k = (extra_points + 1) * remainder + initial_conditions_number
         X_full_batch = np.zeros([k, feature_number])
         y_full_batch = np.zeros([k, 1])
 
@@ -175,6 +187,11 @@ def get_minibatches_linear(X_full, y_full, batch_size, **kwargs):
             y_batch = y_deltas[j]
             y_full_batch[j * remainder:(j + 1) * remainder] = y_batch[total_batches * batch_size:]
 
+    #Add initial conditions
+    for j in range(initial_conditions_number):
+        X_full_batch[k-j-1]=initial_x
+        y_full_batch[k-j-1]=initial_y
+        
         X_batches.append(X_full_batch)
         y_batches.append(y_full_batch)
 

@@ -11,7 +11,7 @@ def real_p(x1, x2, sigma_x, sigma_y):
 
 def real_y(x):
 
-    y = np.exp(x)
+    y = np.exp(-x)+1
 
     return np.reshape(y, [y.shape[0], 1])
 

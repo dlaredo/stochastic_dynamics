@@ -285,7 +285,7 @@ def squared_residual_function(X, y_pred, deltas, k, c, D, batch_size):
 
     return r
 
-def linear_residual_function_wrapper(num_inputs, num_outputs, deltas, num_feval):
+def linear_residual_function_wrapper(num_inputs, num_outputs, deltas, num_feval, num_conditions, alpha=1):
     def linear_residual_function(X, y_pred, y_real):
 
         num_output = tf.constant(num_outputs)
@@ -304,6 +304,8 @@ def linear_residual_function_wrapper(num_inputs, num_outputs, deltas, num_feval)
         multiplier_begin = tf.constant([1, 0])
         size_y = tf.stack([batch_size, num_output])
         size_x = tf.stack([batch_size, num_features])
+        size_x_initial = tf.stack([num_conditions, num_features])
+        size_y_initial = tf.stack([num_conditions, num_output])
         offset_increment_x = tf.multiply(size_x, multiplier_begin)
         offset_increment_y = tf.multiply(size_y, multiplier_begin)
 
@@ -328,18 +330,28 @@ def linear_residual_function_wrapper(num_inputs, num_outputs, deltas, num_feval)
         begin_x = tf.add(begin_x, offset_increment_x)
         begin_y = tf.add(begin_y, offset_increment_y)
         X_delta1_minus = tf.slice(X, begin_x, size_x)
-
         y_pred_delta1_minus = tf.slice(y_pred, begin_y, size_y)
         y_real_delta1_minus = tf.slice(y_real, begin_y, size_y)
+        
+        begin_x = tf.Print(begin_x, [begin_x, begin_y, size_x_initial, size_y_initial], message='bx, by, sxi, syi')
 
-        y_pred_delta1_minus = tf.Print(y_pred_delta1_minus, [y_original, y_pred_original], message="y_o, y_p")
+        begin_x = tf.add(begin_x, offset_increment_x)
+        begin_y = tf.add(begin_y, offset_increment_y)
+        X_initial = tf.slice(X, begin_x, size_x_initial)
+        y_real_initial = tf.slice(y_real, begin_y, size_y_initial)
+        y_pred_initial = tf.slice(y_pred, begin_y, size_y_initial)
 
-        r_total = y_pred_delta1_plus*(1 - delta_x/2) - y_pred_original*(1 + delta_x/2)
+        #r_total = y_pred_delta1_plus*(1 - delta_x/2) - y_pred_original*(1 + delta_x/2)
+        r_total = first_order_central_finite_difference(y_pred_delta1_plus, y_pred_delta1_minus, delta_x) + y_pred_original - tf.ones(tf.shape(y_pred_original), dtype=tf.float32, name=None)
+        
+        r_total = tf.Print(r_total, [X_initial,y_real_initial, y_pred_initial], message='x_init, y_init_r, y_init_p')
 
-        r_total = first_order_central_finite_difference(y_pred_delta1_plus, y_pred_delta1_minus, delta_x) - y_pred_original
-
-        r = tf.reduce_sum(tf.pow(r_total, 2))/(2*tf.cast(batch_size, tf.float32))
+        e1 = tf.reduce_sum(tf.pow(r_total, 2))/(2*tf.cast(batch_size, tf.float32))                                               
+        e2 = tf.reduce_sum(tf.pow(tf.subtract(y_pred_initial, y_real_initial), 2))
+        
         e = tf.reduce_sum(tf.pow(tf.subtract(y_original, y_pred_original), 2)) / (2 * tf.cast(batch_size, tf.float32))
+                                                                                   
+        r = e1 + alpha*e2
 
         return r, e
 
