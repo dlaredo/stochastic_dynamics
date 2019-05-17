@@ -352,7 +352,38 @@ def linear_residual_function_wrapper(num_inputs, num_outputs, deltas, num_feval,
         e = tf.reduce_sum(tf.pow(tf.subtract(y_original, y_pred_original), 2)) / (2 * tf.cast(batch_size, tf.float32))
                                                                                    
         r = e1 + alpha*e2
+        
+        
+        d1 = first_order_central_finite_difference(y_pred_delta1_plus, y_pred_delta1_minus, delta_x)
+        ic = tf.multiply(y_real_initial, tf.ones(tf.shape(y_pred_original)))
+        d1 = tf.Print(d1, [tf.shape(X_original), tf.shape(d1)])
+        
+        
+        r_total2 = tf.multiply(X_original, d1)  + y_pred_original + ic +  tf.multiply(X_original, y_pred_original) - tf.ones(tf.shape(y_pred_original), dtype=tf.float32, name=None)
+        r2 = tf.reduce_sum(tf.pow(r_total2, 2))/(2*tf.cast(batch_size, tf.float32))   
 
-        return r, e
+        
+        # expamles
+        
+        # our r
+        #1
+        try1_total = d1 + (X_original + (1 + 3 * tf.pow(X_original, 2))/(1 + X_original + tf.pow(X_original, 3))) * y_pred_original - tf.pow(X_original, 3) - 2 * X_original - tf.pow(X_original, 2) * (1 + 3 * tf.pow(X_original, 2))/(1 + X_original + tf.pow(X_original, 3))
+        try1 = tf.reduce_sum(tf.pow(try1_total, 2))/(2*tf.cast(batch_size, tf.float32))+ alpha*e2
+        
+        #2
+        try2_total = d1 + y_pred_original/5 - tf.exp(-X_original/5) * tf.cos(X_original)
+        try2 = tf.reduce_sum(tf.pow(try2_total, 2))/(2*tf.cast(batch_size, tf.float32))+ alpha*e2
+        
+#         d2 = second_order_central_finite_difference(y_pred_original, y_pred_delta1_plus, y_pred_delta1_minus, delta_x)
+#         try3_total = d2 + d1/5 + y_pred_original + tf.exp(-X_original/5) * tf.cos(X_original)/5
+        
+        # paper's r
+        try1_ex_total = y_pred_original + X_original * d1 - (- (ic + tf.multiply(X_original, y_pred_original)) * (X_original + (1 + 3 * tf.pow(X_original, 2))/(1 + X_original + tf.pow(X_original, 3))) + tf.pow(X_original, 3) + 2 * X_original + tf.pow(X_original, 2) * (1 + 3 * tf.pow(X_original, 2))/(1 + X_original + tf.pow(X_original, 3)))
+        try1_ex = tf.reduce_sum(tf.pow(try1_ex_total, 2))/(2*tf.cast(batch_size, tf.float32))
+        
+        try2_ex_total = y_pred_original + X_original * d1 - (- tf.multiply(X_original, y_pred_original)/5 + tf.exp(-X_original/5) * tf.cos(X_original))
+        try2_ex = tf.reduce_sum(tf.pow(try2_ex_total, 2))/(2*tf.cast(batch_size, tf.float32))
+        
+        return try1, e
 
     return linear_residual_function

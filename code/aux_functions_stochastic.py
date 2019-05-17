@@ -113,7 +113,13 @@ def get_minibatches_linear(X_full, y_full, batch_size, **kwargs):
     initial_conditions_number = initial_x.shape[0]
 
     initial_x[0,0] = 0
-    initial_y[0,0] = 2
+#     initial_y[0,0] = 2
+    #1
+    initial_y[0,0] = 1
+#     #2
+#     initial_y[0,0] = 0
+
+    
 
     X_full, y_full = sklearn.utils.shuffle(X_full, y_full)
 
