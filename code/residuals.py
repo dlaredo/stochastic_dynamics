@@ -75,3 +75,74 @@ def residual_ode1(X_batches, y_pred_batches, y_real_batches, deltas, batch_size,
 	r = tf.add(e1, alpha * e2, name="residual_total")
 
 	return r
+
+
+def residual_eg1(X_batches, y_pred_batches, y_real_batches, deltas, batch_size, alpha=1):
+
+	#x batches
+	X_original = X_batches[0]
+   
+	#y pred batches
+	y_pred_original = y_pred_batches[0]
+	y_pred_delta1_plus = y_pred_batches[1]
+	y_pred_delta1_minus = y_pred_batches[2]
+
+	#y boundaries
+	y_pred_initial = y_pred_batches[-1]
+	y_real_initial = y_real_batches[-1]
+
+	y_pred_initial = tf.Print(y_pred_initial, [y_real_initial, y_pred_initial], message="Initial conditions")
+
+	delta_x = deltas[0]
+
+	d1 = first_order_central_finite_difference(y_pred_delta1_plus, y_pred_delta1_minus, delta_x)
+    
+	r_total = d1 + (X_original + (1 + 3 * tf.pow(X_original, 2))/(1 + X_original + tf.pow(X_original, 3))) * y_pred_original - tf.pow(X_original, 3) - 2 * X_original - tf.pow(X_original, 2) * (1 + 3 * tf.pow(X_original, 2))/(1 + X_original + tf.pow(X_original, 3))
+
+	e1 = tf.div(tf.reduce_sum(tf.pow(r_total, 2)), 2 * tf.cast(batch_size, tf.float32), name="residual")
+	e2 = tf.reduce_sum(tf.pow(tf.subtract(y_pred_initial, y_real_initial), 2), name="initial_conditions")
+
+	r = tf.add(e1, alpha * e2, name="residual_total")
+   
+	ic = tf.multiply(y_real_initial, tf.ones(tf.shape(y_pred_original)))
+	r_paper_total = y_pred_original + X_original * d1 - (- (ic + tf.multiply(X_original, y_pred_original)) * (X_original + (1 + 3 * tf.pow(X_original, 2))/(1 + X_original + tf.pow(X_original, 3))) + tf.pow(X_original, 3) + 2 * X_original + tf.pow(X_original, 2) * (1 + 3 * tf.pow(X_original, 2))/(1 + X_original + tf.pow(X_original, 3)))
+   
+	r_paper = tf.div(tf.reduce_sum(tf.pow(r_paper_total, 2)), 2 * tf.cast(batch_size, tf.float32), name="residual")
+
+	return r
+
+
+def residual_eg2(X_batches, y_pred_batches, y_real_batches, deltas, batch_size, alpha=1):
+
+	#x batches
+	X_original = X_batches[0]
+    
+	#y pred batches
+	y_pred_original = y_pred_batches[0]
+	y_pred_delta1_plus = y_pred_batches[1]
+	y_pred_delta1_minus = y_pred_batches[2]
+
+	#y boundaries
+	y_pred_initial = y_pred_batches[-1]
+	y_real_initial = y_real_batches[-1]
+
+	y_pred_initial = tf.Print(y_pred_initial, [y_real_initial, y_pred_initial], message="Initial conditions")
+
+	delta_x = deltas[0]
+
+	d1 = first_order_central_finite_difference(y_pred_delta1_plus, y_pred_delta1_minus, delta_x)
+    
+	r_total = d1 + y_pred_original/5 - tf.exp(- X_original/5) * tf.cos(X_original)
+
+	e1 = tf.div(tf.reduce_sum(tf.pow(r_total, 2)), 2 * tf.cast(batch_size, tf.float32), name="residual")
+	e2 = tf.reduce_sum(tf.pow(tf.subtract(y_pred_initial, y_real_initial), 2), name="initial_conditions")
+
+	r = tf.add(e1, alpha * e2, name="residual_total")
+   
+	ic = tf.multiply(y_real_initial, tf.ones(tf.shape(y_pred_original)))
+	r_paper_total = y_pred_original + X_original * d1 - (- (ic + tf.multiply(X_original, y_pred_original))/5 + tf.exp(-X_original/5) * tf.cos(X_original))
+    
+	r_paper = tf.div(tf.reduce_sum(tf.pow(r_paper_total, 2)), 2 * tf.cast(batch_size, tf.float32), name="residual")
+
+	return r
+

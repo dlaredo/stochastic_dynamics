@@ -15,14 +15,25 @@ def ode1(x):
 
     return np.reshape(y, [y.shape[0], 1])
 
+def eg1(x):
+
+    y = (np.exp(- np.power(x, 2)/2))/(1 + x + np.power(x, 3)) + np.power(x, 2)
+
+    return np.reshape(y, [y.shape[0], 1])
+
+def eg2(x):
+
+    y = np.exp(- x/5) * np.sin(x)
+
+    return np.reshape(y, [y.shape[0], 1])
 
 def real_y(x):
 
-    y = np.exp(-x)+1
+#    y = np.exp(-x)+1
     
     # examples
     #1
-    #y = np.exp(-(np.power(x, 2)/2)) / (1 + x + np.power(x, 3)) + np.power(x, 2)
+    y = np.exp(-(np.power(x, 2)/2)) / (1 + x + np.power(x, 3)) + np.power(x, 2)
 #     #2
 #     y = np.exp(-x/5) * np.sin(x)
 

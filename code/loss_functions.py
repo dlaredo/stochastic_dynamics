@@ -59,7 +59,7 @@ def residual_function_wrapper(num_inputs, num_outputs, deltas, num_feval, num_co
 
         X_batches, y_pred_batches, y_real_batches, batch_size = get_tensors_from_batch(X, y_pred, y_real, num_inputs, num_outputs, num_conditions, num_feval)
 
-        r = residuals.residual_ode1(X_batches, y_pred_batches, y_real_batches, deltas, batch_size, alpha)
+        r = residuals.residual_eg1(X_batches, y_pred_batches, y_real_batches, deltas, batch_size, alpha)
 
         #r = tf.Print(r, [r], message="r")
 
