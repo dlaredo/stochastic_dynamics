@@ -21,7 +21,7 @@ def get_minibatches(X_full, y_full, batch_size, **kwargs):
 
     X_full, y_full = sklearn.utils.shuffle(X_full, y_full)
 
-    if (len(deltas) + len(initial_xs) + len(initial_ys) + X_full.shape[1]) != 4*X_full.shape[1]:
+    if (len(deltas) + initial_xs.shape[1] + initial_ys.shape[1] + X_full.shape[1]) != 4*X_full.shape[1]:
         print("Arrays must all have same shape for second dimension")
 
     full_size = X_full.shape[0]

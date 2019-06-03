@@ -36,20 +36,14 @@ def create_placeholders(input_shape, output_shape):
 
 
 def tf_simple_ode(X):
-	l2_lambda_regularization = 0.1
-	# l1_lambda_regularization = 0.10
+	#l2_lambda_regularization = 0.1
+	#l1_lambda_regularization = 0.10
 
-	A1 = tf.layers.dense(X, 500, activation=tf.nn.relu,
+	A1 = tf.layers.dense(X, 100, activation=tf.nn.relu,
 						 kernel_initializer=tf.contrib.layers.xavier_initializer(uniform=False),
 						 name="fc1")
-	A2 = tf.layers.dense(A1, 100, activation=tf.nn.relu,
-						 kernel_initializer=tf.contrib.layers.xavier_initializer(uniform=False),
-						 name="fc2")
-	A3 = tf.layers.dense(A2, 20, activation=tf.nn.relu,
-						 kernel_initializer=tf.contrib.layers.xavier_initializer(uniform=False),
-						 name="fc3")
-	y = tf.layers.dense(A3, 1, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(uniform=False),
-						kernel_regularizer=tf.contrib.layers.l2_regularizer(l2_lambda_regularization), name="out")
+	y = tf.layers.dense(A1, 1, activation=None, kernel_initializer=tf.contrib.layers.xavier_initializer(uniform=False),
+						name="out")
 
 	return y
 
@@ -58,33 +52,92 @@ def tf_compiled_model(num_features, output_shape, deltas, num_fevals=1, num_cond
 	tf.reset_default_graph()
 
 	X, y = create_placeholders(num_features, output_shape)
-	y_pred = tf_simple_ode(X)
 
-	loss_function = loss_functions.residual_function_wrapper(num_features, output_shape,
-															 deltas, num_fevals, num_conditions, alpha)
-	cost, e = loss_function(X, y_pred, y)
-	# reg_cost = tf.losses.get_regularization_loss()
-	total_cost = e
+	with tf.name_scope("model"):
+		y_pred = tf_simple_ode(X)
 
-	optimizer = tf.train.AdamOptimizer(learning_rate=0.05, beta1=0.8).minimize(total_cost)
+	with tf.name_scope("loss_function"):
+		loss_function = loss_functions.residual_function_wrapper(num_features, output_shape,
+																 deltas, num_fevals, num_conditions, alpha)
+		cost, e = loss_function(X, y_pred, y)
+		# reg_cost = tf.losses.get_regularization_loss()
+		total_cost = cost
+
+	with tf.name_scope("train"):
+		optimizer = tf.train.AdamOptimizer(learning_rate=0.01, beta1=0.5).minimize(total_cost)
 
 	return {'X_placeholder': X, 'y_placeholder': y, 'y_pred': y_pred, 'cost': cost, 'total_cost': total_cost,
 			'optimizer': optimizer}
 
+
+def check_results(tModel, sess):
+
+	display_points = 20
+
+	tModel.evaluate_model(['mse', 'rmse'], cross_validation=True, tf_session=sess)
+	X_test = tModel.X_crossVal
+	y_pred = tModel.y_predicted
+	y_real = tModel.y_crossVal
+
+	cScores = tModel.scores
+	# rmse = math.sqrt(cScores['score_1'])
+	rmse2 = cScores['rmse']
+	mse = cScores['mse']
+	time = tModel.train_time
+
+	total_points = len(y_pred)
+	sample_array = list(range(total_points))
+
+	sample_points = np.random.choice(sample_array, display_points)
+
+	y_real_sampled = y_real[sample_points]
+	y_pred_sampled = y_pred[sample_points]
+	X_sampled = X_test[sample_points, :]
+
+	print(y_real_sampled)
+
+	i = range(len(y_pred_sampled))
+
+	for x, y_real_display, y_pred_display in zip(X_sampled, y_real_sampled, y_pred_sampled):
+		print('x {}, Real y {}, Predicted y {}'.format(x, y_real_display, y_pred_display))
+
+	# print("RMSE: {}".format(rmse))
+	print("RMSE2: {}".format(rmse2))
+	print("MSE: {}".format(mse))
+	print("Time : {} seconds".format(time))
+
+
+def plot_results(tModel, sess):
+
+	tModel.evaluate_model(['mse', 'rmse'], cross_validation=True, tf_session=sess)
+
+	X_test = tModel.X_crossVal
+	y_pred = tModel.y_predicted
+	y_real = tModel.y_crossVal
+
+	plt.scatter(X_test.flatten(), y_pred.flatten(), c='r')  # y_pred/nn_pred
+	plt.scatter(X_test.flatten(), y_real.flatten(), c='b')  # y_real
+	# plt.scatter(x,nn_real,c='b')  #nn_real
+
+	plt.savefig("ode_plot.pdf", format="pdf")
+
 def main():
 
 	#declare specifics of the ODE
-	deltas = [10**(-1)]
-	variable_boundaries = [[0, 1]]
-	points_per_dimension = [10]
+	deltas = [10**(-6)]
+	variable_boundaries = [[0, 5]]
+	points_per_dimension = [10000]
 
 	#Boundary conditions
-	initial_xs = np.array([[0]])
-	initial_ys = np.array([[1]])
+	initial_xs = np.array([[0], [5]])
+	initial_ys = np.array([[1], [-146.413159]])
 
 	num_features = len(points_per_dimension)
-	num_conditions = len(initial_xs)
+	num_conditions = initial_xs.shape[0]
 	num_output = 1
+
+	print("initial conditions")
+	print(num_conditions)
 
 	subFolder = datetime.now().strftime("%Y%m%d-%H%M%S")
 	logdir = f"./graphs/{subFolder}/"
@@ -92,13 +145,16 @@ def main():
 	#two d-dimensional points for each dimension to compute the derivatives plus the original point
 	num_fevals = len(points_per_dimension)*2+1
 
+	print("num f_evals")
+	print(num_fevals)
+
 	dhandler_grid = GridDataHandler()
 
 	model = tf_compiled_model(num_features=num_features, output_shape=num_output, deltas=deltas, num_fevals=num_fevals,
 							  num_conditions=num_conditions, alpha=1)
 
 	tModel = SequenceTunableModelRegression('ModelStochastic_SN_1', model, lib_type='tensorflow',
-											data_handler=dhandler_grid, batch_size=8)
+											data_handler=dhandler_grid, batch_size=256)
 
 	tModel.load_data(verbose=1, cross_validation_ratio=0.2, boundaries=variable_boundaries, n=points_per_dimension)
 
@@ -109,18 +165,24 @@ def main():
 
 	tModel.print_data()
 
-	tModel.epochs = 20
+	tModel.epochs = 100
 	minibatches_function_handle = aux_functions_stochastic.get_minibatches
 
 	sess = tf.Session()
 
+	merged_summary = tf.summary.merge_all()
 	tbWriter = tf.summary.FileWriter(logdir)
 	tbWriter.add_graph(sess.graph)
 
 	#sess = tf_debug.LocalCLIDebugWrapperSession(sess)
 
 	tModel.train_model(tf_session=sess, get_minibatches_function_handle=minibatches_function_handle,
-					   verbose=1, deltas=deltas, initial_xs=initial_xs, initial_ys=initial_ys)
+					   verbose=1, deltas=deltas, initial_xs=initial_xs, initial_ys=initial_ys,
+					   tb_writer=tbWriter, merged_summary=merged_summary, tb_refresh_epochs=1)
+
+	check_results(tModel, sess)
+
+	plot_results(tModel, sess)
 
 
 main()

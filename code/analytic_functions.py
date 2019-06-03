@@ -11,7 +11,14 @@ def real_p(x1, x2, sigma_x, sigma_y):
 
 def ode1(x):
 
-    y = np.exp(-x) + 1
+    y = 2-np.exp(x)
+
+    return np.reshape(y, [y.shape[0], 1])
+
+
+def ode2(x):
+
+    y = np.exp(x)
 
     return np.reshape(y, [y.shape[0], 1])
 

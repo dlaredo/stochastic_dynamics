@@ -52,7 +52,7 @@ def R5_integral(tf_fx, tf_fx_y_plus, tf_fx_y_minus, delta_x, delta_y):
 	return R5
 
 
-def residual_ode1(X_batches, y_pred_batches, y_real_batches, deltas, batch_size, alpha=1):
+def residual_ode1(X_batches, y_pred_batches, y_real_batches, deltas, batch_size, num_conditions, alpha=1):
 
 	#y pred batches
 	y_pred_original = y_pred_batches[0]
@@ -63,14 +63,71 @@ def residual_ode1(X_batches, y_pred_batches, y_real_batches, deltas, batch_size,
 	y_pred_initial = y_pred_batches[-1]
 	y_real_initial = y_real_batches[-1]
 
-	y_pred_initial = tf.Print(y_pred_initial, [y_real_initial, y_pred_initial], message="Initial conditions")
+	delta_x = deltas[0]
+
+	r_total = first_order_central_finite_difference(y_pred_delta1_plus, y_pred_delta1_minus, delta_x) - y_pred_original - 2*tf.ones(tf.shape(y_pred_original), dtype=tf.float32, name=None)
+
+	e1 = tf.div(tf.reduce_sum(tf.pow(r_total, 2)), 2 * tf.cast(batch_size, tf.float32), name="residual")
+	e2 = tf.div(tf.reduce_sum(tf.pow(tf.subtract(y_pred_initial, y_real_initial), 2)), 2 * tf.constant(num_conditions, tf.float32), name="initial_conditions")
+
+	r = tf.add(e1, alpha * e2, name="residual_total")
+
+	return r
+
+
+def residual_ode2(X_batches, y_pred_batches, y_real_batches, deltas, batch_size, num_conditions, alpha=1):
+
+	#y pred batches
+	y_pred_original = y_pred_batches[0]
+	y_pred_delta1_plus = y_pred_batches[1]
+	y_pred_delta1_minus = y_pred_batches[2]
+
+	#y boundaries
+	y_pred_initial = y_pred_batches[-1]
+	y_real_initial = y_real_batches[-1]
 
 	delta_x = deltas[0]
 
-	r_total = first_order_central_finite_difference(y_pred_delta1_plus, y_pred_delta1_minus, delta_x) + y_pred_original - tf.ones(tf.shape(y_pred_original), dtype=tf.float32, name=None)
+	print("num conditions")
+	print(num_conditions)
+
+	print("batch size")
+	print(batch_size)
+
+	r_total = first_order_central_finite_difference(y_pred_delta1_plus, y_pred_delta1_minus, delta_x) - y_pred_original
 
 	e1 = tf.div(tf.reduce_sum(tf.pow(r_total, 2)), 2 * tf.cast(batch_size, tf.float32), name="residual")
-	e2 = tf.reduce_sum(tf.pow(tf.subtract(y_pred_initial, y_real_initial), 2), name="initial_conditions")
+	e2 = tf.div(tf.reduce_sum(tf.pow(tf.subtract(y_pred_initial, y_real_initial), 2)), 2 * tf.constant(num_conditions, tf.float32), name="initial_conditions")
+
+	r = tf.add(e1, alpha * e2, name="residual_total")
+
+	return r
+
+
+def residual_integral2(X_batches, y_pred_batches, y_real_batches, deltas, batch_size, num_conditions, alpha=1):
+
+	# y pred batches
+	y_pred_original = y_pred_batches[0]
+	y_pred_delta1_plus = y_pred_batches[1]
+	y_pred_delta1_minus = y_pred_batches[2]
+
+	# y boundaries
+	y_pred_initial = y_pred_batches[-1]
+	y_real_initial = y_real_batches[-1]
+
+	delta_x = deltas[0]
+
+	print("num conditions")
+	print(num_conditions)
+
+	print("batch size")
+	print(batch_size)
+
+	r_total =  tf.multiply(y_pred_delta1_plus, (1 - delta_x/2)) - tf.multiply(y_pred_original, (1 + delta_x/2))
+
+	e1 = tf.div(tf.reduce_sum(tf.pow(r_total, 2)), 2 * tf.cast(batch_size, tf.float32), name="residual")
+	e2 = tf.div(tf.reduce_sum(tf.pow(tf.subtract(y_pred_initial, y_real_initial), 2)),
+				2 * tf.constant(num_conditions, tf.float32), name="initial_conditions")
 
 	r = tf.add(e1, alpha * e2, name="residual_total")
 
