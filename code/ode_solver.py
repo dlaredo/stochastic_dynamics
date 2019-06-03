@@ -26,6 +26,7 @@ import analytic_functions
 import loss_functions
 
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 
 def create_placeholders(input_shape, output_shape):
@@ -48,7 +49,7 @@ def tf_simple_ode(X):
 	return y
 
 
-def tf_compiled_model(num_features, output_shape, deltas, num_fevals=1, num_conditions=0, alpha=1):
+def tf_compiled_model(num_features, output_shape, deltas, num_fevals=1, num_conditions=0, alpha=1, **kwargs):
 	tf.reset_default_graph()
 
 	X, y = create_placeholders(num_features, output_shape)
@@ -58,7 +59,7 @@ def tf_compiled_model(num_features, output_shape, deltas, num_fevals=1, num_cond
 
 	with tf.name_scope("loss_function"):
 		loss_function = loss_functions.residual_function_wrapper(num_features, output_shape,
-																 deltas, num_fevals, num_conditions, alpha)
+																 deltas, num_fevals, num_conditions, alpha, **kwargs)
 		cost, e = loss_function(X, y_pred, y)
 		# reg_cost = tf.losses.get_regularization_loss()
 		total_cost = cost
@@ -121,20 +122,96 @@ def plot_results(tModel, sess):
 
 	plt.savefig("ode_plot.pdf", format="pdf")
 
+
+def plot_results3D(tModel, sess, sigma_x, sigma_y, p_real):
+
+	tModel.evaluate_model(['mse', 'rmse'], cross_validation=True, tf_session=sess)
+
+	X_test = tModel.X_crossVal
+	y_pred = tModel.y_predicted
+	y_real = tModel.y_crossVal
+
+	fig = plt.figure(1)
+
+	ax = fig.add_subplot(212, projection='3d')
+	ax.scatter(X_test[:, 0].flatten(), X_test[:, 1].flatten(), y_pred.flatten(), c='r')  # y_pred/nn_pred
+	ax.scatter(X_test[:, 0].flatten(), X_test[:, 1].flatten(), y_real.flatten(), c='b')  # y_real
+
+	ax.set_xlabel("x")
+	ax.set_ylabel("y")
+	ax.set_zlabel("phi")
+
+	ax = fig.add_subplot(221, projection='3d')
+	ax.scatter(X_test[:, 0].flatten(), X_test[:, 1].flatten(), y_pred.flatten(), c='r')  # y_pred/nn_pred
+
+	ax.set_xlabel("x")
+	ax.set_ylabel("y")
+	ax.set_zlabel("phi")
+
+	ax = fig.add_subplot(222, projection='3d')
+	ax.scatter(X_test[:, 0].flatten(), X_test[:, 1].flatten(), y_real.flatten(), c='b')  # y_real
+
+	ax.set_xlabel("x")
+	ax.set_ylabel("y")
+	ax.set_zlabel("phi")
+
+	plt.savefig("ode_plot_3d.pdf", format="pdf")
+
+	fig = plt.figure(2)
+
+	d_real = 2 * np.pi * sigma_x * sigma_y
+	c_zero_real = 1/d_real
+	p_pred = c_zero_real * np.exp(-y_pred.flatten())
+
+	ax = fig.add_subplot(212, projection='3d')
+	ax.scatter(X_test[:, 0].flatten(), X_test[:, 1].flatten(), p_pred.flatten(), c='r')  # y_pred/nn_pred
+	ax.scatter(X_test[:, 0].flatten(), X_test[:, 1].flatten(), p_real.flatten(), c='b')  # y_real
+
+	ax.set_xlabel("x")
+	ax.set_ylabel("y")
+	ax.set_zlabel("phi")
+
+	ax = fig.add_subplot(221, projection='3d')
+	ax.scatter(X_test[:, 0].flatten(), X_test[:, 1].flatten(), p_pred.flatten(), c='r')  # y_pred/nn_pred
+
+	ax.set_xlabel("x")
+	ax.set_ylabel("y")
+	ax.set_zlabel("phi")
+
+	ax = fig.add_subplot(222, projection='3d')
+	ax.scatter(X_test[:, 0].flatten(), X_test[:, 1].flatten(), p_real.flatten(), c='b')  # y_real
+
+	ax.set_xlabel("x")
+	ax.set_ylabel("y")
+	ax.set_zlabel("phi")
+
+	plt.savefig("ode_plot2_3d.pdf", format="pdf")
+
 def main():
 
 	#declare specifics of the ODE
-	deltas = [10**(-6)]
-	variable_boundaries = [[0, 5]]
-	points_per_dimension = [10000]
+	deltas = [10 ** (-3), 10 ** (-3)]
+	variable_boundaries = [[-10, 10], [-10, 10]]
+	points_per_dimension = [1000, 1000]
 
 	#Boundary conditions
-	initial_xs = np.array([[0], [5]])
-	initial_ys = np.array([[1], [-146.413159]])
+	initial_xs = np.array([[0, 0]])
+	initial_ys = np.array([[0]])
 
 	num_features = len(points_per_dimension)
 	num_conditions = initial_xs.shape[0]
 	num_output = 1
+
+	"""For the two dimensional test function"""
+	k = 1
+	c = 0.1
+	D = 1
+
+	sigma_x = np.sqrt(D / (k * c))
+	sigma_y = np.sqrt(D / c)
+
+	#kwargs = {"k":k, "c":c, "D":D}
+	"""End"""
 
 	print("initial conditions")
 	print(num_conditions)
@@ -150,8 +227,11 @@ def main():
 
 	dhandler_grid = GridDataHandler()
 
+	#model = tf_compiled_model(num_features=num_features, output_shape=num_output, deltas=deltas, num_fevals=num_fevals,
+	#						  num_conditions=num_conditions, alpha=1)
+
 	model = tf_compiled_model(num_features=num_features, output_shape=num_output, deltas=deltas, num_fevals=num_fevals,
-							  num_conditions=num_conditions, alpha=1)
+							  num_conditions=num_conditions, alpha=1, k=k, c=c, D=D)
 
 	tModel = SequenceTunableModelRegression('ModelStochastic_SN_1', model, lib_type='tensorflow',
 											data_handler=dhandler_grid, batch_size=256)
@@ -159,11 +239,12 @@ def main():
 	tModel.load_data(verbose=1, cross_validation_ratio=0.2, boundaries=variable_boundaries, n=points_per_dimension)
 
 	# Real function
-	tModel.y_test = analytic_functions.ode1(tModel.X_test[:, 0])
-	tModel.y_train = analytic_functions.ode1(tModel.X_train[:, 0])
-	tModel.y_crossVal = analytic_functions.ode1(tModel.X_crossVal[:, 0])
+	p_test, tModel.y_test = analytic_functions.real_p(tModel.X_test[:, 0], tModel.X_test[:, 1], sigma_x, sigma_y)
+	p_train, tModel.y_train = analytic_functions.real_p(tModel.X_train[:, 0], tModel.X_train[:, 1], sigma_x, sigma_y)
+	p_crossVal, tModel.y_crossVal = analytic_functions.real_p(tModel.X_crossVal[:, 0], tModel.X_crossVal[:, 1], sigma_x, sigma_y)
 
 	tModel.print_data()
+
 
 	tModel.epochs = 100
 	minibatches_function_handle = aux_functions_stochastic.get_minibatches
@@ -182,7 +263,10 @@ def main():
 
 	check_results(tModel, sess)
 
-	plot_results(tModel, sess)
+	#plot_results(tModel, sess)
+
+	plot_results3D(tModel, sess, sigma_x, sigma_y, p_crossVal)
+
 
 
 main()

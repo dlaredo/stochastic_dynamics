@@ -55,12 +55,12 @@ def get_tensors_from_batch(X, y_pred, y_real, num_inputs, num_outputs, num_condi
     return X_batches, y_pred_batches, y_real_batches, batch_size
 
 
-def residual_function_wrapper(num_inputs, num_outputs, deltas, num_feval, num_conditions, alpha=1):
+def residual_function_wrapper(num_inputs, num_outputs, deltas, num_feval, num_conditions, alpha=1, **kwargs):
     def residual_function(X, y_pred, y_real):
 
         X_batches, y_pred_batches, y_real_batches, batch_size = get_tensors_from_batch(X, y_pred, y_real, num_inputs, num_outputs, num_conditions, num_feval)
 
-        r = residuals.residual_ode1(X_batches, y_pred_batches, y_real_batches, deltas, batch_size, num_conditions, alpha)
+        r = residuals.residual_phi_integral(X_batches, y_pred_batches, y_real_batches, deltas, batch_size, num_conditions, alpha, **kwargs)
 
         tf.summary.scalar('residual', r)
 
